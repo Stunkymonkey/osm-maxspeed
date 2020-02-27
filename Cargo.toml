@@ -1,0 +1,14 @@
+[package]
+name = "osm-maxspeed"
+version = "0.0.1"
+authors = [ "Felix Buehler <account@buehler.rocks>" ]
+
+include = [
+  "README.md",
+  ".gitignore",
+  "Cargo.toml",
+  "src/*.rs"
+]
+
+[dependencies]
+osmpbfreader = "0.13"
