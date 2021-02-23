@@ -11,4 +11,4 @@ include = [
 ]
 
 [dependencies]
-osmpbfreader = "0.13"
+osmpbfreader = "0.14"
