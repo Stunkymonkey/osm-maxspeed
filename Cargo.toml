@@ -2,6 +2,7 @@
 name = "osm-maxspeed"
 version = "0.0.1"
 authors = [ "Felix Buehler <account@buehler.rocks>" ]
+edition = "2018"
 
 include = [
   "README.md",
@@ -11,4 +12,5 @@ include = [
 ]
 
 [dependencies]
+clap = "2.33"
 osmpbfreader = "0.14"

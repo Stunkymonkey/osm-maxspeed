@@ -1,24 +1,57 @@
 extern crate osmpbfreader;
 
+use clap::{App, Arg};
 use osmpbfreader::{groups, primitive_block_from_blob};
 use std::collections::HashSet;
 use std::fs::File;
 use std::path::Path;
 
 fn main() {
-    // check if arguments are right
-    let args: Vec<_> = std::env::args().collect();
-    if args.len() != 2 {
-        println!("Usage: {} pbf_file", args[0]);
-        return;
-    }
+    // check arguments
+    let matches = App::new("osm-maxspeed")
+        .version("0.1")
+        .author("Felix Bühler")
+        .about("little validator for osm data")
+        .arg(
+            Arg::with_name("osm-file")
+                .short("f")
+                .long("file")
+                .help("Set osm-file")
+                .required(true)
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("disable-maxspeed")
+                .short("m")
+                .long("disable-maxspeed")
+                .help("Disable the maxspeed-validator (default enabled)"),
+        )
+        .arg(
+            Arg::with_name("disable-type")
+                .short("t")
+                .long("disable-type")
+                .help("Disable the maxspeed:type-validator (default enabled)"),
+        )
+        .arg(
+            Arg::with_name("disable-source")
+                .short("s")
+                .long("disable-source")
+                .help("Disable the source-validator (default enabled)"),
+        )
+        .get_matches();
+
+    let show_speed = !matches.is_present("disable-maxspeed");
+    let show_type = !matches.is_present("disable-type");
+    let show_source = !matches.is_present("disable-source");
 
     let mut valid_maxspeed = HashSet::new();
     valid_maxspeed.insert("none".to_string());
-    valid_maxspeed.insert("signals".to_string());
+    // only a proposal: https://wiki.openstreetmap.org/wiki/Key:maxspeed
     valid_maxspeed.insert("walk".to_string());
 
-    // collect all valid speed-strings
+    let mut valid_maxspeed_type = HashSet::new();
+    valid_maxspeed_type.insert("sign".to_string());
+
     let country_codes = vec![
         "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS", "AT", "AU", "AW", "AX",
         "AZ", "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BL", "BM", "BN", "BO", "BQ",
@@ -53,22 +86,39 @@ fn main() {
         "urban:primary",
         "urban:secondary",
         "walk",
+        "zone",
+        "zone:20",
+        "zone20",
         "zone:30",
         "zone30",
+        "zone:50",
+        "zone50",
     ];
     for country_code in country_codes {
         for zone_type in &zone_types {
-            valid_maxspeed.insert(format!("{}:{}", country_code, zone_type));
+            valid_maxspeed_type.insert(format!("{}:{}", country_code, zone_type));
         }
     }
 
-    // read pbf file
-    let filename = std::env::args_os().nth(1).unwrap();
-    let path = Path::new(&filename);
-    if !path.exists() {
-        println!("{} not found", filename.into_string().unwrap());
-        std::process::exit(1);
+    let mut valid_source_maxspeed = HashSet::new();
+    valid_source_maxspeed.insert("markings".to_string());
+    for codes in &valid_maxspeed_type {
+        valid_source_maxspeed.insert(codes.to_string());
     }
+
+    // read pbf file
+    let path = if let Some(filename) = matches.value_of("osm-file") {
+        let file_path = Path::new(filename);
+        if !file_path.exists() {
+            println!("{} not found", filename);
+            std::process::exit(1);
+        }
+        file_path
+    } else {
+        println!("no file provided. exiting");
+        std::process::exit(1);
+    };
+
     let r = File::open(&path).unwrap();
     let mut pbf = osmpbfreader::OsmPbfReader::new(r);
 
@@ -79,31 +129,46 @@ fn main() {
             for way in groups::ways(&group, &block) {
                 if way.tags.contains_key("highway") {
                     let _highway = way.tags.get("highway").unwrap().trim();
-                    if way.tags.contains_key("maxspeed") {
+                    if show_speed && way.tags.contains_key("maxspeed") {
                         let max_speed = way.tags.get("maxspeed").unwrap().trim();
                         if !valid_maxspeed.contains(max_speed) {
                             let tmp = &max_speed.replace(" mph", "");
                             let max_speed_slim = &tmp.replace(" knots", "");
                             let speed = max_speed_slim.parse::<usize>();
-                            // get way ID
-                            let osm_id = way.id;
-                            // sort by mistakes and print osm ids by error
                             match speed {
                                 Ok(ok) => {
                                     if ok < 1 as usize {
                                         println!(
-                                            "https://www.openstreetmap.org/way/{:?} \t{:?}",
-                                            osm_id.0, max_speed
+                                            "maxspeed\t\t\thttps://www.openstreetmap.org/way/{:?} \t{:?}",
+                                            way.id.0, max_speed
                                         );
                                     }
                                 }
                                 Err(_err) => {
                                     println!(
-                                        "https://www.openstreetmap.org/way/{:?} \t{:?}",
-                                        osm_id.0, max_speed
+                                        "maxspeed\t\t\thttps://www.openstreetmap.org/way/{:?} \t{:?}",
+                                        way.id.0, max_speed
                                     );
                                 }
                             }
+                        }
+                    }
+                    if show_type && way.tags.contains_key("maxspeed:type") {
+                        let max_speed_type = way.tags.get("maxspeed:type").unwrap().trim();
+                        if !valid_maxspeed_type.contains(max_speed_type) {
+                            println!(
+                                "maxspeed:type\t\thttps://www.openstreetmap.org/way/{:?} \t{:?}",
+                                way.id.0, max_speed_type
+                            );
+                        }
+                    }
+                    if show_source && way.tags.contains_key("source:maxspeed") {
+                        let source_max_speed = way.tags.get("source:maxspeed").unwrap().trim();
+                        if !valid_source_maxspeed.contains(source_max_speed) {
+                            println!(
+                                "source:maxspeed\t\thttps://www.openstreetmap.org/way/{:?} \t{:?}",
+                                way.id.0, source_max_speed
+                            );
                         }
                     }
                 }
