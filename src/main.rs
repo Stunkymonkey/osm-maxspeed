@@ -13,28 +13,28 @@ fn main() {
         .author("Felix Bühler")
         .about("little validator for osm data")
         .arg(
-            Arg::with_name("osm-file")
-                .short("f")
+            Arg::new("osm-file")
+                .short('f')
                 .long("file")
                 .help("Set osm-file")
                 .required(true)
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("disable-maxspeed")
-                .short("m")
+            Arg::new("disable-maxspeed")
+                .short('m')
                 .long("disable-maxspeed")
                 .help("Disable the maxspeed-validator (default enabled)"),
         )
         .arg(
-            Arg::with_name("disable-type")
-                .short("t")
+            Arg::new("disable-type")
+                .short('t')
                 .long("disable-type")
                 .help("Disable the maxspeed:type-validator (default enabled)"),
         )
         .arg(
-            Arg::with_name("disable-source")
-                .short("s")
+            Arg::new("disable-source")
+                .short('s')
                 .long("disable-source")
                 .help("Disable the source-validator (default enabled)"),
         )

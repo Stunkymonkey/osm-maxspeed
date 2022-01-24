@@ -12,5 +12,5 @@ include = [
 ]
 
 [dependencies]
-clap = "2.33"
-osmpbfreader = "0.14"
+clap = "3.0"
+osmpbfreader = "0.15"
